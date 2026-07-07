@@ -476,25 +476,34 @@ function gerarPDF(){
   doc.setFontSize(8);
   doc.text(((h.f_cidade||'')+' — '+today), PW-M, ys+12, {align:'right'});
 
-  // Comprovantes
+  // Comprovantes — 4 por página, todos do mesmo tamanho (grade 2x2)
   var photos=state.expenses.filter(function(e){return e.photo;});
   if(photos.length){
-    doc.addPage(); var y=M+4;
-    doc.setFont('helvetica','bold'); doc.setFontSize(12);
-    doc.text('Comprovantes anexados ('+photos.length+')', M, y); y+=6;
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    var colW=(PW-2*M-6)/2;              // largura fixa da célula
+    var gridTop=M+10;                   // início da grade (abaixo do título)
+    var cellH=(PH-M-gridTop-6)/2;       // altura fixa da célula (2 linhas por página)
+    var capH=6;                         // altura da legenda
+    function receiptTitle(){ doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(40);
+      doc.text('Comprovantes anexados ('+photos.length+')', M, M+6); doc.setFont('helvetica','normal'); }
     for(var p=0;p<photos.length;p++){
+      var slot=p%4;
+      if(slot===0){ doc.addPage(); receiptTitle(); }
+      var r=Math.floor(slot/2), c=slot%2;
+      var x=M + c*(colW+6);
+      var y=gridTop + r*(cellH+6);
+      doc.setDrawColor(190); doc.setLineWidth(0.2); doc.rect(x,y,colW,cellH);
       var e=photos[p];
+      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(40);
+      var cap=e.cat+(e.desc?(' — '+e.desc):'')+'  ·  '+money(e.val);
+      var lines=doc.splitTextToSize(cap,colW-4);
+      doc.text(lines[0], x+2, y+4);
+      doc.setFont('helvetica','normal');
+      var iaX=x+2, iaY=y+capH, iaW=colW-4, iaH=cellH-capH-3;
       var ratio=(e.ph&&e.pw)?(e.ph/e.pw):1.3;
-      var w=Math.min(PW-2*M,120), hh=w*ratio;
-      if(hh>150){ hh=150; w=hh/ratio; }
-      var capH=6;
-      if(y+capH+hh>PH-M){ doc.addPage(); y=M+4; }
-      doc.setFont('helvetica','bold');
-      doc.text(e.cat+(e.desc?(' — '+e.desc):'')+'  ·  '+money(e.val), M, y);
-      doc.setFont('helvetica','normal'); y+=2;
-      try{ doc.addImage(e.photo,'JPEG',M,y,w,hh); }catch(err){ doc.text('[imagem não pôde ser incluída]',M,y+6); }
-      y+=hh+8;
+      var dW=iaW, dH=dW*ratio;
+      if(dH>iaH){ dH=iaH; dW=dH/ratio; }
+      var ix=iaX+(iaW-dW)/2, iy=iaY+(iaH-dH)/2;
+      try{ doc.addImage(e.photo,'JPEG',ix,iy,dW,dH); }catch(err){ doc.text('[imagem indisponível]', iaX, iaY+8); }
     }
   }
 
