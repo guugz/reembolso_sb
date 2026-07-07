@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-title" content="Reembolso">
 <meta name="theme-color" content="#4a5560">
 <title>Reembolso SerraBRAS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root{
     --slate:#4a5560; --slate-d:#3a434c; --yellow:#f5c518; --green:#2e7d32;
@@ -21,13 +23,13 @@
     font-size:16px;-webkit-text-size-adjust:100%;}
   input,select,textarea,button{font-family:inherit;font-size:16px;}
   header.topbar{position:sticky;top:0;z-index:20;background:var(--slate);
-    color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;
+    color:#fff;padding:8px 14px;display:flex;align-items:center;gap:10px;
     box-shadow:0 2px 6px rgba(0,0,0,.15);}
-  header.topbar .logo{flex:0 0 auto;}
+  header.topbar .logo{flex:0 0 auto;background:#fff;border-radius:8px;padding:3px;display:flex;}
   header.topbar .t{font-weight:600;font-size:15px;line-height:1.1;}
   header.topbar .t small{display:block;font-weight:400;font-size:11px;opacity:.8;}
   header.topbar .mes{margin-left:auto;font-size:12px;text-align:right;opacity:.9;}
-  nav.tabs{position:sticky;top:52px;z-index:19;display:flex;background:var(--card);
+  nav.tabs{position:sticky;top:54px;z-index:19;display:flex;background:var(--card);
     border-bottom:1px solid var(--line);}
   nav.tabs button{flex:1;border:none;background:none;padding:12px 4px;font-size:13px;
     font-weight:600;color:var(--muted);border-bottom:3px solid transparent;}
@@ -105,7 +107,7 @@
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
     background:var(--slate-d);color:#fff;padding:12px 18px;border-radius:24px;
     font-size:14px;z-index:100;opacity:0;transition:opacity .2s;pointer-events:none;
-    box-shadow:0 4px 14px rgba(0,0,0,.25);}
+    box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:88%;text-align:center;}
   .toast.show{opacity:1;}
 </style>
 </head>
@@ -197,8 +199,8 @@
     <div id="fullList"></div>
     <div class="card">
       <h2>📤 Exportar</h2>
-      <p class="hint" style="margin-top:0">Gera o comprovante no layout SerraBRAS com os subtotais preenchidos e as fotos anexadas. Abre numa aba do Safari onde você toca em <b>Imprimir / Salvar PDF</b>.</p>
-      <button class="btn" onclick="gerarPDF()">🖨️ Gerar PDF (layout + comprovantes)</button>
+      <p class="hint" style="margin-top:0">Gera um <b>PDF</b> no layout SerraBRAS com os subtotais e as fotos anexadas. No iPhone abre a folha de compartilhar: escolha <b>Salvar em Arquivos</b>, Mail ou WhatsApp.</p>
+      <button class="btn" onclick="gerarPDF()">📄 Gerar PDF (layout + comprovantes)</button>
       <button class="btn ghost" onclick="exportJSON()">💾 Salvar backup dos dados (.json)</button>
       <button class="btn danger" onclick="limparMes()">🗑️ Zerar mês (novo acerto)</button>
     </div>
@@ -208,27 +210,39 @@
 <div class="toast" id="toast"></div>
 
 <script>
-var LOGO_SVG = '<svg width="118" height="30" viewBox="0 0 300 78" xmlns="http://www.w3.org/2000/svg">'
-+'<rect x="4" y="4" width="70" height="70" rx="12" fill="none" stroke="#556069" stroke-width="7"/>'
-+'<g transform="translate(20,58)">'
-+'<path d="M0,0 A38,38 0 0,1 38,-38 L38,-26 A26,26 0 0,0 0,0 Z" fill="#f5c518"/>'
-+'<path d="M0,0 A22,22 0 0,1 22,-22 L22,-12 A12,12 0 0,0 0,0 Z" fill="#f5c518"/>'
-+'<path d="M0,0 A12,12 0 0,1 12,-12 L12,0 Z" fill="#2e7d32"/></g>'
-+'<text x="88" y="52" font-family="Arial,Helvetica,sans-serif" font-size="46" font-weight="400" fill="#8a949c">Serra</text>'
-+'<text x="188" y="52" font-family="Arial,Helvetica,sans-serif" font-size="46" font-weight="800" fill="#556069">BRAS</text></svg>';
+var TEETH='M76.0,73.5 L83.9,70.2 L75.6,68.0 Z M75.5,67.0 L82.9,62.7 L74.4,61.6 Z M74.2,60.6 L80.9,55.4 L72.4,55.4 Z M72.0,54.4 L78.0,48.3 L69.6,49.5 Z M69.0,48.5 L74.2,41.8 L66.0,44.0 Z M65.3,43.1 L69.6,35.8 L61.7,39.0 Z M61.0,38.3 L64.2,30.4 L56.9,34.7 Z M56.0,34.0 L58.2,25.8 L51.5,31.0 Z M50.5,30.4 L51.7,22.0 L45.6,28.0 Z M44.6,27.6 L44.6,19.1 L39.4,25.8 Z M38.4,25.6 L37.3,17.1 L33.0,24.5 Z M32.0,24.4 L29.8,16.1 L26.5,24.0 Z';
+var EMBLEM='<path d="M77.0,74.0 A51,51 0 0 0 26.0,23.0 L26.0,27.0 A47,47 0 0 1 73.0,74.0 Z" fill="#4a5560"/>'
+  +'<path d="'+TEETH+'" fill="#4a5560"/>'
+  +'<path d="M74.0,74.0 A48,48 0 0 0 26.0,26.0 L26.0,49.0 A25,25 0 0 1 51.0,74.0 Z" fill="#f5c518"/>'
+  +'<path d="M26,74 L49.0,74.0 A23,23 0 0 0 26.0,51.0 Z" fill="#2e8b3d"/>';
+var LOGO_ICON='<svg width="34" height="34" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'
+  +'<rect x="7" y="7" width="86" height="86" rx="16" fill="#fff" stroke="#4a5560" stroke-width="7"/>'+EMBLEM+'</svg>';
+var LOGO_FULL='<svg width="470" height="100" viewBox="0 0 470 100" xmlns="http://www.w3.org/2000/svg">'
+  +'<rect x="6" y="6" width="88" height="88" rx="16" fill="#fff" stroke="#4a5560" stroke-width="8"/>'+EMBLEM
+  +'<text x="112" y="67" font-family="Arial,Helvetica,sans-serif" font-size="50" font-weight="500" fill="#4a5560">Serra</text>'
+  +'<text x="246" y="67" font-family="Arial,Helvetica,sans-serif" font-size="50" font-weight="800" fill="#4a5560">BRAS</text></svg>';
+document.getElementById('logoSlot').innerHTML=LOGO_ICON;
 
-document.getElementById('logoSlot').innerHTML =
-  '<svg width="26" height="26" viewBox="0 0 78 78" xmlns="http://www.w3.org/2000/svg">'
-  +'<rect x="4" y="4" width="70" height="70" rx="12" fill="none" stroke="#fff" stroke-width="7"/>'
-  +'<g transform="translate(20,58)">'
-  +'<path d="M0,0 A38,38 0 0,1 38,-38 L38,-26 A26,26 0 0,0 0,0 Z" fill="#f5c518"/>'
-  +'<path d="M0,0 A12,12 0 0,1 12,-12 L12,0 Z" fill="#2e7d32"/></g></svg>';
+var LOGO_PNG=null;
+function svgToPng(svg,w,h){return new Promise(function(res){
+  try{
+    var img=new Image();
+    var blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'});
+    var url=URL.createObjectURL(blob);
+    img.onload=function(){var c=document.createElement('canvas');c.width=w;c.height=h;
+      var ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);
+      try{URL.revokeObjectURL(url);}catch(e){} res(c.toDataURL('image/png'));};
+    img.onerror=function(){res(null);};
+    img.src=url;
+  }catch(e){res(null);}
+});}
+svgToPng(LOGO_FULL,470*3,100*3).then(function(p){LOGO_PNG=p;});
 
-var CATS = ['Passagens','Hospedagem','Alimentação','Deslocamento'];
-var CATCLASS = {'Passagens':'c-pass','Hospedagem':'c-hosp','Alimentação':'c-alim','Deslocamento':'c-desl'};
-var CATICON = {'Passagens':'✈️','Hospedagem':'🏨','Alimentação':'🍽️','Deslocamento':'🚗'};
-var state = { header:{}, expenses:[] };
-var selCat = null, selPhoto = null;
+var CATS=['Passagens','Hospedagem','Alimentação','Deslocamento'];
+var CATCLASS={'Passagens':'c-pass','Hospedagem':'c-hosp','Alimentação':'c-alim','Deslocamento':'c-desl'};
+var CATICON={'Passagens':'✈️','Hospedagem':'🏨','Alimentação':'🍽️','Deslocamento':'🚗'};
+var state={header:{},expenses:[]};
+var selCat=null, selPhoto=null;
 
 var DB_NAME='reembolsoSerraBras', STORE='doc';
 function idb(){return new Promise(function(res,rej){var r=indexedDB.open(DB_NAME,1);
@@ -242,10 +256,12 @@ function load(){return idb().then(function(db){var tx=db.transaction(STORE,'read
 }).catch(function(e){console.warn('load',e);return null;});}
 
 function $(id){return document.getElementById(id);}
-function money(n){return 'R$ ' + (Number(n)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function money(n){return 'R$ '+(Number(n)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function br(n){return (Number(n)||0).toLocaleString('pt-BR',{minimumFractionDigits:2});}
 function toast(msg){var t=$('toast');t.textContent=msg;t.classList.add('show');
-  clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},1800);}
+  clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2600);}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function pad2(n){return n<10?('0'+n):(''+n);}
 
 var tabBtns=document.querySelectorAll('nav.tabs button');
 for(var i=0;i<tabBtns.length;i++){tabBtns[i].onclick=function(){
@@ -260,7 +276,7 @@ for(var i=0;i<tabBtns.length;i++){tabBtns[i].onclick=function(){
 function pickPhoto(){ $('fileCam').click(); }
 $('fileCam').addEventListener('change',function(){
   var f=this.files&&this.files[0]; if(!f) return;
-  resizeImage(f,1280,0.72).then(function(dataURL){ selPhoto=dataURL; renderPhotobox(); });
+  resizeImage(f,1280,0.72).then(function(obj){ selPhoto=obj; renderPhotobox(); });
   this.value='';
 });
 function resizeImage(file,maxDim,quality){
@@ -272,8 +288,8 @@ function resizeImage(file,maxDim,quality){
       else if(h>=w && h>maxDim){w=Math.round(w*maxDim/h);h=maxDim;}
       var c=document.createElement('canvas');c.width=w;c.height=h;
       c.getContext('2d').drawImage(img,0,0,w,h);
-      URL.revokeObjectURL(url);
-      res(c.toDataURL('image/jpeg',quality));
+      try{URL.revokeObjectURL(url);}catch(e){}
+      res({dataURL:c.toDataURL('image/jpeg',quality),w:w,h:h});
     };
     img.onerror=function(){res(null);};
     img.src=url;
@@ -281,9 +297,9 @@ function resizeImage(file,maxDim,quality){
 }
 function renderPhotobox(){
   var pb=$('photobox');
-  if(selPhoto){
+  if(selPhoto&&selPhoto.dataURL){
     pb.classList.add('has');
-    pb.innerHTML='<img src="'+selPhoto+'" alt="comprovante">'
+    pb.innerHTML='<img src="'+selPhoto.dataURL+'" alt="comprovante">'
       +'<div class="ph-actions">'
       +'<button type="button" onclick="event.stopPropagation();retakePhoto()">Trocar</button>'
       +'<button type="button" onclick="event.stopPropagation();removePhoto()">✕</button></div>';
@@ -305,8 +321,8 @@ function addExpense(){
   var val=parseFloat(($('valIn').value||'').replace(',','.'));
   if(!selCat){toast('Escolha uma categoria');return;}
   if(!(val>0)){toast('Digite um valor válido');return;}
-  state.expenses.push({ id:uid(), cat:selCat, desc:($('descIn').value||'').trim(),
-    val:val, photo:selPhoto||null, ts:Date.now() });
+  state.expenses.push({ id:uid(), cat:selCat, desc:($('descIn').value||'').trim(), val:val,
+    photo:selPhoto?selPhoto.dataURL:null, pw:selPhoto?selPhoto.w:0, ph:selPhoto?selPhoto.h:0, ts:Date.now() });
   save();
   selCat=null; selPhoto=null;
   var all=document.querySelectorAll('#cats button');for(var j=0;j<all.length;j++)all[j].classList.remove('sel');
@@ -315,61 +331,41 @@ function addExpense(){
   toast('Despesa adicionada ✓');
 }
 
-function subtotais(){
-  var s={}; CATS.forEach(function(c){s[c]=0;});
-  state.expenses.forEach(function(e){s[e.cat]=(s[e.cat]||0)+e.val;});
-  return s;
-}
+function subtotais(){var s={};CATS.forEach(function(c){s[c]=0;});
+  state.expenses.forEach(function(e){s[e.cat]=(s[e.cat]||0)+e.val;});return s;}
 function totalGeral(){return state.expenses.reduce(function(a,e){return a+e.val;},0);}
 
 function itemHTML(e){
-  var thumb = e.photo ? '<img class="thumb" src="'+e.photo+'">' : '<div class="thumb none">🧾</div>';
+  var thumb=e.photo?'<img class="thumb" src="'+e.photo+'">':'<div class="thumb none">🧾</div>';
   return '<div class="item">'+thumb
     +'<div class="desc"><b>'+(e.desc||e.cat)+'</b><small>'+CATICON[e.cat]+' '+e.cat+'</small></div>'
     +'<div class="val">'+money(e.val)+'</div>'
     +'<button class="del" onclick="delExpense(\''+e.id+'\')">🗑️</button></div>';
 }
-function groupedHTML(){
-  var sub=subtotais(); var html='';
-  CATS.forEach(function(c){
-    var items=state.expenses.filter(function(e){return e.cat===c;});
+function groupedHTML(){var sub=subtotais(),html='';
+  CATS.forEach(function(c){var items=state.expenses.filter(function(e){return e.cat===c;});
     if(!items.length) return;
     html+='<div class="grp '+CATCLASS[c]+'"><div class="ghead"><span>'+CATICON[c]+' '+c
       +' <span class="badge">'+items.length+'</span></span><span>'+money(sub[c])+'</span></div>'
-      +items.map(itemHTML).join('')+'</div>';
-  });
-  return html;
-}
-function renderQuickList(){
-  var el=$('quickList');
+      +items.map(itemHTML).join('')+'</div>';});
+  return html;}
+function renderQuickList(){var el=$('quickList');
   if(!state.expenses.length){el.innerHTML='<div class="card empty">Nenhuma despesa lançada ainda.<br>Adicione o primeiro comprovante acima. 👆</div>';return;}
-  el.innerHTML='<div class="card"><h2>📎 Lançados neste acerto <span class="badge">'+state.expenses.length+'</span></h2>'+groupedHTML()+'</div>';
-}
-function renderFullList(){
-  var el=$('fullList');
+  el.innerHTML='<div class="card"><h2>📎 Lançados neste acerto <span class="badge">'+state.expenses.length+'</span></h2>'+groupedHTML()+'</div>';}
+function renderFullList(){var el=$('fullList');
   if(!state.expenses.length){el.innerHTML='';return;}
-  el.innerHTML='<div class="card"><h2>📎 Comprovantes</h2>'+groupedHTML()+'</div>';
-}
-function delExpense(id){
-  if(!confirm('Remover esta despesa?'))return;
+  el.innerHTML='<div class="card"><h2>📎 Comprovantes</h2>'+groupedHTML()+'</div>';}
+function delExpense(id){if(!confirm('Remover esta despesa?'))return;
   state.expenses=state.expenses.filter(function(e){return e.id!==id;});
-  save(); renderQuickList(); renderFullList(); renderTotais();
-  toast('Removido');
-}
+  save();renderQuickList();renderFullList();renderTotais();toast('Removido');}
 
-function daysBetween(){
-  var s=$('f_dsaida').value, c=$('f_dcheg').value;
-  if(!s||!c) return 0;
-  var d=(new Date(c)-new Date(s))/86400000;
-  return d>=0?Math.round(d)+1:0;
-}
+function daysBetween(){var s=$('f_dsaida').value,c=$('f_dcheg').value;if(!s||!c)return 0;
+  var d=(new Date(c)-new Date(s))/86400000;return d>=0?Math.round(d)+1:0;}
 function renderTotais(){
-  var sub=subtotais(), tot=totalGeral();
+  var sub=subtotais(),tot=totalGeral();
   var adto=parseFloat(($('f_adto').value||'').replace(',','.'))||0;
-  var dias=daysBetween();
-  var media=dias>0?tot/dias:0;
-  var receber=Math.max(tot-adto,0);
-  var devolver=adto>tot?adto-tot:0;
+  var dias=daysBetween(),media=dias>0?tot/dias:0;
+  var receber=Math.max(tot-adto,0),devolver=adto>tot?adto-tot:0;
   var h='';
   CATS.forEach(function(c){h+='<div class="tot"><span>'+CATICON[c]+' '+c+'</span><b>'+money(sub[c])+'</b></div>';});
   h+='<div class="tot grand"><span>Total Geral</span><b>'+money(tot)+'</b></div>';
@@ -383,124 +379,146 @@ function renderTotais(){
 
 var HFIELDS=['f_mes','f_func','f_obj','f_dsaida','f_hsaida','f_dcheg','f_hcheg',
   'f_kmsaida','f_kmcheg','f_adto','f_cc','f_item','f_classe','f_cidade','f_obs'];
-function bindHeader(){
-  HFIELDS.forEach(function(id){
-    var el=$(id);
-    el.addEventListener('input',function(){state.header[id]=el.value;save();
-      $('mesTop').textContent=state.header.f_mes||'';
-      if(id==='f_adto'||id==='f_dsaida'||id==='f_dcheg') renderTotais();});
-  });
-}
-function fillHeader(){
-  HFIELDS.forEach(function(id){ if(state.header[id]!=null)$(id).value=state.header[id]; });
-  $('mesTop').textContent=state.header.f_mes||'';
-}
+function bindHeader(){HFIELDS.forEach(function(id){var el=$(id);
+  el.addEventListener('input',function(){state.header[id]=el.value;save();
+    $('mesTop').textContent=state.header.f_mes||'';
+    if(id==='f_adto'||id==='f_dsaida'||id==='f_dcheg') renderTotais();});});}
+function fillHeader(){HFIELDS.forEach(function(id){if(state.header[id]!=null)$(id).value=state.header[id];});
+  $('mesTop').textContent=state.header.f_mes||'';}
 
-function esc(s){return (s||'').toString().replace(/[&<>]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[ch];});}
-function fmtDate(d){ if(!d)return ''; var p=d.split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):d; }
-function br(n){return (Number(n)||0).toLocaleString('pt-BR',{minimumFractionDigits:2});}
+function fmtDate(d){if(!d)return '';var p=d.split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):d;}
 
+/* ================= Gera PDF real (jsPDF) ================= */
 function gerarPDF(){
+  if(!(window.jspdf&&window.jspdf.jsPDF)){ toast('Sem conexão para gerar o PDF. Conecte à internet e tente de novo.'); return; }
   var h=state.header, sub=subtotais(), tot=totalGeral();
   var adto=parseFloat((h.f_adto||'').toString().replace(',','.'))||0;
-  var dias=daysBetween(); var media=dias>0?tot/dias:0;
-  var receber=Math.max(tot-adto,0); var devolver=adto>tot?adto-tot:0;
+  var dias=daysBetween(), media=dias>0?tot/dias:0;
+  var receber=Math.max(tot-adto,0), devolver=adto>tot?adto-tot:0;
   var today=new Date().toLocaleDateString('pt-BR');
 
-  function rowsFor(cat){
+  var doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+  var PW=doc.internal.pageSize.getWidth(), PH=doc.internal.pageSize.getHeight();
+  var M=12, GREY=[233,237,241], SLATE=[74,85,96];
+
+  if(LOGO_PNG){ try{ doc.addImage(LOGO_PNG,'PNG',M,9,52,11.06); }catch(e){} }
+  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text('Reembolso de Despesas com Viagens', PW/2+14, 14, {align:'center'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(10);
+  doc.text(h.f_mes||'', PW/2+14, 20, {align:'center'});
+
+  function grid(opt){ opt.theme='grid';
+    opt.styles=Object.assign({fontSize:8,cellPadding:1.3,lineColor:[130,130,130],lineWidth:0.1,overflow:'linebreak'},opt.styles||{});
+    doc.autoTable(opt); return doc.lastAutoTable.finalY; }
+
+  // Cabeçalho
+  var yH=grid({ startY:24, margin:{left:M,right:M},
+    body:[
+      [{content:'Funcionário',styles:{fillColor:GREY,fontStyle:'bold'}},{content:h.f_func||'',colSpan:3}],
+      [{content:'Objetivo',styles:{fillColor:GREY,fontStyle:'bold'}},{content:h.f_obj||'',colSpan:3}],
+      [{content:'Data saída',styles:{fillColor:GREY,fontStyle:'bold'}},(fmtDate(h.f_dsaida)+' '+(h.f_hsaida||'')).trim(),
+       {content:'KM saída',styles:{fillColor:GREY,fontStyle:'bold'}},h.f_kmsaida||''],
+      [{content:'Data chegada',styles:{fillColor:GREY,fontStyle:'bold'}},(fmtDate(h.f_dcheg)+' '+(h.f_hcheg||'')).trim(),
+       {content:'KM chegada',styles:{fillColor:GREY,fontStyle:'bold'}},h.f_kmcheg||'']
+    ],
+    columnStyles:{0:{cellWidth:32},2:{cellWidth:28}}
+  });
+
+  // Quadrantes 2x2
+  var col=(PW-2*M-6)/2, leftX=M, rightX=M+col+6;
+  function quadrant(cat,startY,x){
     var items=state.expenses.filter(function(e){return e.cat===cat;});
-    var r='';
-    items.forEach(function(e,i){
-      r+='<tr><td style="width:26px">'+(String(i+1).length<2?'0'+(i+1):(i+1))+'</td>'
-        +'<td>'+esc(e.desc||'-')+'</td><td class="r" style="width:70px">'+br(e.val)+'</td></tr>';
-    });
-    if(!items.length) r='<tr><td style="width:26px">01</td><td>&nbsp;</td><td class="r" style="width:70px">0,00</td></tr>';
-    return r;
+    var body=items.map(function(e,i){return [pad2(i+1), e.desc||'-', br(e.val)];});
+    if(!body.length) body=[['01','','0,00']];
+    body.push([{content:'SUB-TOTAL',colSpan:2,styles:{fillColor:GREY,fontStyle:'bold'}},
+               {content:br(sub[cat]),styles:{fillColor:GREY,fontStyle:'bold',halign:'right'}}]);
+    doc.autoTable({ startY:startY, margin:{left:x}, tableWidth:col, theme:'grid',
+      head:[[{content:cat,colSpan:3,styles:{fillColor:SLATE,textColor:255,halign:'center',fontStyle:'bold'}}],
+            [{content:'#',styles:{fillColor:GREY,fontStyle:'bold',textColor:[70,70,70]}},
+             {content:'Despesas',styles:{fillColor:GREY,fontStyle:'bold',textColor:[70,70,70]}},
+             {content:'R$',styles:{fillColor:GREY,fontStyle:'bold',halign:'right',textColor:[70,70,70]}}]],
+      body:body,
+      styles:{fontSize:7.5,cellPadding:1.1,lineColor:[130,130,130],lineWidth:0.1,overflow:'linebreak'},
+      columnStyles:{0:{cellWidth:8,halign:'center'},2:{cellWidth:20,halign:'right'}} });
+    return doc.lastAutoTable.finalY;
   }
-  function quadrant(cat){
-    return '<table><tr><td colspan="3" class="qhead">'+cat+'</td></tr>'
-      +'<tr><td class="lbl" style="width:26px">#</td><td class="lbl">Despesas</td><td class="lbl r" style="width:70px">R$</td></tr>'
-      +rowsFor(cat)
-      +'<tr><td colspan="2" class="sub">SUB-TOTAL</td><td class="sub r">'+br(sub[cat])+'</td></tr></table>';
+  var r1=Math.max(quadrant('Passagens',yH+3,leftX), quadrant('Hospedagem',yH+3,rightX));
+  var r2=Math.max(quadrant('Alimentação',r1+3,leftX), quadrant('Deslocamento',r1+3,rightX));
+
+  // Totais
+  var yT=grid({ startY:r2+3, margin:{left:M,right:M},
+    body:[
+      [{content:'Total Geral',styles:{fillColor:GREY,fontStyle:'bold'}},{content:br(tot),styles:{halign:'right',fontStyle:'bold'}},
+       {content:'Adiantamento',styles:{fillColor:GREY,fontStyle:'bold'}},{content:br(adto),styles:{halign:'right'}}],
+      [{content:'Total de dias',styles:{fillColor:GREY,fontStyle:'bold'}},{content:(dias||''),styles:{halign:'right'}},
+       {content:'A receber',styles:{fillColor:GREY,fontStyle:'bold'}},{content:br(receber),styles:{halign:'right'}}],
+      [{content:'Média diária',styles:{fillColor:GREY,fontStyle:'bold'}},{content:br(media),styles:{halign:'right'}},
+       {content:'A devolver',styles:{fillColor:GREY,fontStyle:'bold'}},{content:br(devolver),styles:{halign:'right'}}]
+    ],
+    columnStyles:{0:{cellWidth:32},1:{cellWidth:(PW-2*M-64)/2},2:{cellWidth:32}} });
+
+  // Observações / classificação
+  var yO=grid({ startY:yT+3, margin:{left:M,right:M},
+    body:[
+      [{content:'Observações',styles:{fillColor:GREY,fontStyle:'bold'}},{content:h.f_obs||'',colSpan:3}],
+      [{content:'Centro de Custo',styles:{fillColor:GREY,fontStyle:'bold'}},h.f_cc||'',
+       {content:'Item',styles:{fillColor:GREY,fontStyle:'bold'}},h.f_item||''],
+      [{content:'Classe de Valor',styles:{fillColor:GREY,fontStyle:'bold'}},{content:h.f_classe||'',colSpan:3}]
+    ],
+    columnStyles:{0:{cellWidth:32},2:{cellWidth:28}} });
+
+  // Assinaturas
+  var ys=yO+16;
+  doc.setDrawColor(0); doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.line(M+4, ys, M+col-4, ys); doc.line(rightX+4, ys, rightX+col-4, ys);
+  doc.text('Assinatura Colaborador', M+col/2, ys+4, {align:'center'});
+  doc.text('Assinatura Chefia Imediata', rightX+col/2, ys+4, {align:'center'});
+  doc.setFontSize(8);
+  doc.text(((h.f_cidade||'')+' — '+today), PW-M, ys+12, {align:'right'});
+
+  // Comprovantes
+  var photos=state.expenses.filter(function(e){return e.photo;});
+  if(photos.length){
+    doc.addPage(); var y=M+4;
+    doc.setFont('helvetica','bold'); doc.setFontSize(12);
+    doc.text('Comprovantes anexados ('+photos.length+')', M, y); y+=6;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    for(var p=0;p<photos.length;p++){
+      var e=photos[p];
+      var ratio=(e.ph&&e.pw)?(e.ph/e.pw):1.3;
+      var w=Math.min(PW-2*M,120), hh=w*ratio;
+      if(hh>150){ hh=150; w=hh/ratio; }
+      var capH=6;
+      if(y+capH+hh>PH-M){ doc.addPage(); y=M+4; }
+      doc.setFont('helvetica','bold');
+      doc.text(e.cat+(e.desc?(' — '+e.desc):'')+'  ·  '+money(e.val), M, y);
+      doc.setFont('helvetica','normal'); y+=2;
+      try{ doc.addImage(e.photo,'JPEG',M,y,w,hh); }catch(err){ doc.text('[imagem não pôde ser incluída]',M,y+6); }
+      y+=hh+8;
+    }
   }
 
-  var withPhotos=state.expenses.filter(function(e){return e.photo;});
-  var receiptsHTML='';
-  if(withPhotos.length){
-    receiptsHTML='<div class="receipts"><h3>Comprovantes anexados ('+withPhotos.length+')</h3>'
-      +withPhotos.map(function(e){return '<div class="rc"><div class="cap"><b>'+esc(e.cat)+'</b> — '
-        +esc(e.desc||'')+' · '+money(e.val)+'</div><img src="'+e.photo+'"></div>';}).join('')
-      +'</div>';
-  }
-
-  var sheet='<div class="sheet">'
-    +'<div class="shead">'+LOGO_SVG+'<div class="stitle">Reembolso de Despesas com Viagens<br>'
-    +'<span style="font-size:11px;font-weight:400">'+esc(h.f_mes||'')+'</span></div></div>'
-    +'<table>'
-    +'<tr><td class="lbl">Funcionário</td><td colspan="3">'+esc(h.f_func||'')+'</td></tr>'
-    +'<tr><td class="lbl">Objetivo</td><td colspan="3">'+esc(h.f_obj||'')+'</td></tr>'
-    +'<tr><td class="lbl">Data saída</td><td>'+fmtDate(h.f_dsaida)+' '+esc(h.f_hsaida||'')+'</td>'
-    +'<td class="lbl">KM saída</td><td>'+esc(h.f_kmsaida||'')+'</td></tr>'
-    +'<tr><td class="lbl">Data chegada</td><td>'+fmtDate(h.f_dcheg)+' '+esc(h.f_hcheg||'')+'</td>'
-    +'<td class="lbl">KM chegada</td><td>'+esc(h.f_kmcheg||'')+'</td></tr></table>'
-    +'<table><tr>'
-    +'<td style="width:50%;border:none;padding:2px">'+quadrant('Passagens')+'</td>'
-    +'<td style="width:50%;border:none;padding:2px">'+quadrant('Hospedagem')+'</td></tr>'
-    +'<tr><td style="border:none;padding:2px">'+quadrant('Alimentação')+'</td>'
-    +'<td style="border:none;padding:2px">'+quadrant('Deslocamento')+'</td></tr></table>'
-    +'<table style="margin-top:4px">'
-    +'<tr><td class="lbl">Total Geral</td><td class="r"><b>'+br(tot)+'</b></td>'
-    +'<td class="lbl">Adiantamento</td><td class="r">'+br(adto)+'</td></tr>'
-    +'<tr><td class="lbl">Total de dias</td><td class="r">'+(dias||'')+'</td>'
-    +'<td class="lbl">A receber</td><td class="r">'+br(receber)+'</td></tr>'
-    +'<tr><td class="lbl">Média diária</td><td class="r">'+br(media)+'</td>'
-    +'<td class="lbl">A devolver</td><td class="r">'+br(devolver)+'</td></tr></table>'
-    +'<table>'
-    +'<tr><td class="lbl">Observações</td><td colspan="3">'+esc(h.f_obs||'')+'</td></tr>'
-    +'<tr><td class="lbl">Centro de Custo</td><td>'+esc(h.f_cc||'')+'</td>'
-    +'<td class="lbl">Item</td><td>'+esc(h.f_item||'')+'</td></tr>'
-    +'<tr><td class="lbl">Classe de Valor</td><td colspan="3">'+esc(h.f_classe||'')+'</td></tr></table>'
-    +'<table><tr>'
-    +'<td style="height:54px;vertical-align:bottom;text-align:center;width:50%">_____________________________<br>Assinatura Colaborador</td>'
-    +'<td style="height:54px;vertical-align:bottom;text-align:center;width:50%">_____________________________<br>Assinatura Chefia Imediata</td></tr></table>'
-    +'<div style="text-align:right;font-size:10px;margin-top:4px">'+esc(h.f_cidade||'')+' — '+today+'</div>'
-    +receiptsHTML+'</div>';
-
-  var css='*{box-sizing:border-box;}'
-    +'body{margin:0;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#eceef1;}'
-    +'.toolbar{position:sticky;top:0;z-index:5;background:#4a5560;color:#fff;padding:10px 12px;display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;text-align:center;}'
-    +'.toolbar button{background:#2e7d32;color:#fff;border:none;padding:13px 22px;border-radius:10px;font-size:16px;font-weight:700;}'
-    +'.toolbar span{font-size:12px;opacity:.92;max-width:340px;}'
-    +'.paper{background:#fff;max-width:820px;margin:14px auto;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.18);}'
-    +'.sheet{width:100%;color:#000;font-size:11px;}'
-    +'.sheet .shead{display:flex;align-items:center;gap:12px;border:1.5px solid #000;padding:8px 10px;}'
-    +'.sheet .shead .stitle{font-size:15px;font-weight:700;text-align:center;flex:1;}'
-    +'.sheet table{width:100%;border-collapse:collapse;margin-top:0;}'
-    +'.sheet td{border:1px solid #000;padding:3px 5px;vertical-align:top;}'
-    +'.sheet .lbl{background:#e9edf1;font-weight:700;white-space:nowrap;}'
-    +'.sheet .qhead{background:#4a5560;color:#fff;font-weight:700;text-align:center;}'
-    +'.sheet .sub{background:#e9edf1;font-weight:700;}'
-    +'.sheet .r{text-align:right;}'
-    +'.sheet .receipts{page-break-before:always;}'
-    +'.sheet .receipts h3{font-size:13px;margin:0 0 8px;}'
-    +'.sheet .rc{display:inline-block;width:48%;vertical-align:top;margin:0 1% 12px;border:1px solid #999;padding:6px;box-sizing:border-box;}'
-    +'.sheet .rc .cap{font-size:10px;margin-bottom:4px;}'
-    +'.sheet .rc img{width:100%;max-height:340px;object-fit:contain;}'
-    +'@media print{.toolbar{display:none;}.paper{box-shadow:none;margin:0;max-width:none;padding:0;}body{background:#fff;}}';
-
-  var doc='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">'
-    +'<meta name="viewport" content="width=device-width, initial-scale=1">'
-    +'<title>Reembolso '+esc(h.f_mes||'')+'</title><style>'+css+'</style></head><body>'
-    +'<div class="toolbar"><button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>'
-    +'<span>No iPhone: toque no botão acima e escolha "Salvar em PDF" (belisque a imagem para ampliar) ou use Compartilhar.</span></div>'
-    +'<div class="paper">'+sheet+'</div></body></html>';
-
-  var win=window.open('','_blank');
-  if(!win){ toast('Permita pop-ups do Safari para gerar o PDF'); return; }
-  win.document.open();
-  win.document.write(doc);
-  win.document.close();
-  setTimeout(function(){ try{ win.focus(); win.print(); }catch(e){} }, 700);
+  var fname='Reembolso '+((h.f_mes||'acerto').replace(/[\\/:*?"<>|]/g,''))+'.pdf';
+  entregarPDF(doc, fname);
+}
+function entregarPDF(doc, fname){
+  try{
+    var blob=doc.output('blob');
+    var file=null;
+    try{ file=new File([blob],fname,{type:'application/pdf'}); }catch(e){ file=null; }
+    if(file && navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file], title:fname}).then(function(){toast('PDF pronto ✓');})
+        .catch(function(){ baixarBlob(blob,fname); });
+      return;
+    }
+    baixarBlob(blob,fname);
+  }catch(err){ console.warn(err); try{ doc.save(fname); }catch(e){ toast('Não foi possível gerar o PDF'); } }
+}
+function baixarBlob(blob,fname){
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); },5000);
+  toast('PDF gerado ✓');
 }
 
 function exportJSON(){
@@ -511,14 +529,13 @@ function exportJSON(){
 }
 function limparMes(){
   if(!confirm('Zerar todas as despesas e iniciar um novo acerto? (o cabeçalho será mantido)'))return;
-  state.expenses=[]; save();
-  renderQuickList();renderFullList();renderTotais();
+  state.expenses=[]; save(); renderQuickList();renderFullList();renderTotais();
   toast('Mês zerado — pronto para novo acerto');
 }
 
 load().then(function(saved){
   if(saved && typeof saved==='object'){
-    state = Object.assign({header:{},expenses:[]},saved);
+    state=Object.assign({header:{},expenses:[]},saved);
     state.header=state.header||{}; state.expenses=state.expenses||[];
   }
   bindHeader(); fillHeader(); renderPhotobox(); renderQuickList(); renderTotais();
