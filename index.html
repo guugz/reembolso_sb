@@ -14,7 +14,7 @@
   :root{
     --slate:#4a5560; --slate-d:#3a434c; --yellow:#f5c518; --green:#2e7d32;
     --bg:#eef1f4; --card:#ffffff; --line:#d7dde3; --muted:#7a848d;
-    --pass:#2f6fb0; --hosp:#8e44ad; --alim:#e08a00; --desl:#2e7d32;
+    --pass:#2f6fb0; --hosp:#8e44ad; --alim:#e08a00; --desl:#2e7d32; --outr:#546e7a;
     --danger:#c0392b;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -60,6 +60,7 @@
   .cats button.sel.c-hosp{background:var(--hosp);border-color:var(--hosp);}
   .cats button.sel.c-alim{background:var(--alim);border-color:var(--alim);}
   .cats button.sel.c-desl{background:var(--desl);border-color:var(--desl);}
+  .cats button.sel.c-outr{background:var(--outr);border-color:var(--outr);}
   .photobox{border:2px dashed var(--line);border-radius:12px;padding:18px;
     text-align:center;color:var(--muted);background:#fbfcfd;position:relative;}
   .photobox.has{padding:0;border-style:solid;overflow:hidden;}
@@ -83,6 +84,7 @@
   .grp.c-hosp .ghead{background:var(--hosp);}
   .grp.c-alim .ghead{background:var(--alim);}
   .grp.c-desl .ghead{background:var(--desl);}
+  .grp.c-outr .ghead{background:var(--outr);}
   .item{display:flex;align-items:center;gap:10px;background:var(--card);
     border:1px solid var(--line);border-top:none;padding:10px 12px;}
   .grp .item:first-of-type{border-top:1px solid var(--line);}
@@ -141,6 +143,7 @@
         <button type="button" class="c-hosp" data-cat="Hospedagem"><span class="ic">🏨</span>Hospedagem</button>
         <button type="button" class="c-alim" data-cat="Alimentação"><span class="ic">🍽️</span>Alimentação</button>
         <button type="button" class="c-desl" data-cat="Deslocamento"><span class="ic">🚗</span>Deslocamento</button>
+        <button type="button" class="c-outr" data-cat="Outros Gastos"><span class="ic">📦</span>Outros Gastos</button>
       </div>
       <div id="stdFields">
         <label>3 · Descrição (opcional)</label>
@@ -252,9 +255,9 @@ function svgToPng(svg,w,h){return new Promise(function(res){
 });}
 svgToPng(LOGO_FULL,470*3,100*3).then(function(p){LOGO_PNG=p;});
 
-var CATS=['Passagens','Hospedagem','Alimentação','Deslocamento'];
-var CATCLASS={'Passagens':'c-pass','Hospedagem':'c-hosp','Alimentação':'c-alim','Deslocamento':'c-desl'};
-var CATICON={'Passagens':'✈️','Hospedagem':'🏨','Alimentação':'🍽️','Deslocamento':'🚗'};
+var CATS=['Passagens','Hospedagem','Alimentação','Deslocamento','Outros Gastos'];
+var CATCLASS={'Passagens':'c-pass','Hospedagem':'c-hosp','Alimentação':'c-alim','Deslocamento':'c-desl','Outros Gastos':'c-outr'};
+var CATICON={'Passagens':'✈️','Hospedagem':'🏨','Alimentação':'🍽️','Deslocamento':'🚗','Outros Gastos':'📦'};
 var KM_RATE=1.40;
 var state={header:{},expenses:[]};
 var selCat=null, selPhoto=null;
@@ -537,9 +540,9 @@ function gerarPDF(){
     columnStyles:{0:{cellWidth:32},2:{cellWidth:28}}
   });
 
-  // Quadrantes 2x2
+  // Quadrantes 2x2 + linha extra para Outros Gastos
   var col=(PW-2*M-6)/2, leftX=M, rightX=M+col+6;
-  function quadrant(cat,startY,x){
+  function quadrant(cat,startY,x,w){
     var items=state.expenses.filter(function(e){return e.cat===cat;});
     var body=items.map(function(e,i){
       var label=e.desc||'-';
@@ -551,7 +554,7 @@ function gerarPDF(){
     if(!body.length) body=[['01','','0,00']];
     body.push([{content:'SUB-TOTAL',colSpan:2,styles:{fillColor:GREY,fontStyle:'bold'}},
                {content:br(sub[cat]),styles:{fillColor:GREY,fontStyle:'bold',halign:'right'}}]);
-    doc.autoTable({ startY:startY, margin:{left:x}, tableWidth:col, theme:'grid',
+    doc.autoTable({ startY:startY, margin:{left:x}, tableWidth:w||col, theme:'grid',
       head:[[{content:cat,colSpan:3,styles:{fillColor:SLATE,textColor:255,halign:'center',fontStyle:'bold'}}],
             [{content:'#',styles:{fillColor:GREY,fontStyle:'bold',textColor:[70,70,70]}},
              {content:'Despesas',styles:{fillColor:GREY,fontStyle:'bold',textColor:[70,70,70]}},
@@ -563,9 +566,11 @@ function gerarPDF(){
   }
   var r1=Math.max(quadrant('Passagens',yH+3,leftX), quadrant('Hospedagem',yH+3,rightX));
   var r2=Math.max(quadrant('Alimentação',r1+3,leftX), quadrant('Deslocamento',r1+3,rightX));
+  var temOutros=state.expenses.some(function(e){return e.cat==='Outros Gastos';});
+  var r3=temOutros?quadrant('Outros Gastos',r2+3,leftX,2*col+6):r2;
 
   // Totais
-  var yT=grid({ startY:r2+3, margin:{left:M,right:M},
+  var yT=grid({ startY:r3+3, margin:{left:M,right:M},
     body:[
       [{content:'Total Geral',styles:{fillColor:GREY,fontStyle:'bold'}},{content:br(tot),styles:{halign:'right',fontStyle:'bold'}},
        {content:'Adiantamento',styles:{fillColor:GREY,fontStyle:'bold'}},{content:br(adto),styles:{halign:'right'}}],
