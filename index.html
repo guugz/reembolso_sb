@@ -142,11 +142,25 @@
         <button type="button" class="c-alim" data-cat="Alimentação"><span class="ic">🍽️</span>Alimentação</button>
         <button type="button" class="c-desl" data-cat="Deslocamento"><span class="ic">🚗</span>Deslocamento</button>
       </div>
-      <label>3 · Descrição (opcional)</label>
-      <input type="text" id="descIn" placeholder="Ex: Almoço, Pedágio, Hotel...">
-      <label>4 · Valor (R$)</label>
-      <input type="text" id="valIn" inputmode="decimal" placeholder="0,00">
+      <div id="stdFields">
+        <label>3 · Descrição (opcional)</label>
+        <input type="text" id="descIn" placeholder="Ex: Almoço, Pedágio, Hotel...">
+        <label>4 · Valor (R$)</label>
+        <input type="text" id="valIn" inputmode="decimal" placeholder="0,00">
+      </div>
+      <div id="deslocFields" style="display:none">
+        <label>3 · Destino / Viagem</label>
+        <input type="text" id="d_destino" placeholder="Ex: Itajaí, Pinustan...">
+        <label>4 · Data da viagem</label>
+        <input type="date" id="d_data">
+        <div class="row">
+          <div><label>KM saída</label><input type="number" id="d_kmsaida" inputmode="numeric" placeholder="0"></div>
+          <div><label>KM chegada</label><input type="number" id="d_kmcheg" inputmode="numeric" placeholder="0"></div>
+        </div>
+        <div class="tot" style="margin-top:6px"><span>KM rodados × R$ 1,40</span><b id="d_valorCalc">R$ 0,00 (0 km)</b></div>
+      </div>
       <button class="btn green" id="addBtn" onclick="addExpense()">Adicionar despesa</button>
+      <p class="hint" id="deslocHint" style="display:none">Cada viagem lançada aqui vira um item de Deslocamento — adicione quantas viagens precisar, cada uma com sua Data, KM saída/chegada e destino.</p>
       <p class="hint">A soma por categoria e o Total Geral são calculados automaticamente na aba <b>Resumo</b>.</p>
     </div>
     <div id="quickList"></div>
@@ -198,6 +212,12 @@
     </div>
     <div id="fullList"></div>
     <div class="card">
+      <h2>📋 Resumo Geral (colar no e-mail)</h2>
+      <p class="hint" style="margin-top:0">Texto pronto, agrupado por categoria, com o detalhe de cada deslocamento (data, KM e valor). Toque em <b>Copiar</b> e cole no corpo do e-mail.</p>
+      <textarea id="resumoEmail" readonly style="min-height:220px;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;"></textarea>
+      <button class="btn ghost" onclick="copiarResumo()">📋 Copiar resumo</button>
+    </div>
+    <div class="card">
       <h2>📤 Exportar</h2>
       <p class="hint" style="margin-top:0">Gera um <b>PDF</b> no layout SerraBRAS com os subtotais e as fotos anexadas. No iPhone abre a folha de compartilhar: escolha <b>Salvar em Arquivos</b>, Mail ou WhatsApp.</p>
       <button class="btn" onclick="gerarPDF()">📄 Gerar PDF (layout + comprovantes)</button>
@@ -235,6 +255,7 @@ svgToPng(LOGO_FULL,470*3,100*3).then(function(p){LOGO_PNG=p;});
 var CATS=['Passagens','Hospedagem','Alimentação','Deslocamento'];
 var CATCLASS={'Passagens':'c-pass','Hospedagem':'c-hosp','Alimentação':'c-alim','Deslocamento':'c-desl'};
 var CATICON={'Passagens':'✈️','Hospedagem':'🏨','Alimentação':'🍽️','Deslocamento':'🚗'};
+var KM_RATE=1.40;
 var state={header:{},expenses:[]};
 var selCat=null, selPhoto=null;
 
@@ -263,7 +284,7 @@ for(var i=0;i<tabBtns.length;i++){tabBtns[i].onclick=function(){
   var all=document.querySelectorAll('nav.tabs button');for(var j=0;j<all.length;j++)all[j].classList.remove('active');
   var pages=document.querySelectorAll('.tabpage');for(var k=0;k<pages.length;k++)pages[k].classList.remove('active');
   b.classList.add('active');$('tab-'+b.dataset.tab).classList.add('active');
-  if(b.dataset.tab==='resumo'){renderTotais();renderFullList();}
+  if(b.dataset.tab==='resumo'){renderTotais();renderFullList();renderResumoEmail();}
   window.scrollTo(0,0);
 };}
 
@@ -309,11 +330,29 @@ var catBtns=document.querySelectorAll('#cats button');
 for(var c1=0;c1<catBtns.length;c1++){catBtns[c1].onclick=function(){
   var all=document.querySelectorAll('#cats button');for(var j=0;j<all.length;j++)all[j].classList.remove('sel');
   this.classList.add('sel'); selCat=this.dataset.cat;
+  updateCatFieldsVisibility();
 };}
 
+function updateCatFieldsVisibility(){
+  var isDesloc=selCat==='Deslocamento';
+  $('stdFields').style.display=isDesloc?'none':'block';
+  $('deslocFields').style.display=isDesloc?'block':'none';
+  $('deslocHint').style.display=isDesloc?'block':'none';
+  if(isDesloc) recalcDesloc();
+}
+function recalcDesloc(){
+  var ks=parseFloat($('d_kmsaida').value)||0, kc=parseFloat($('d_kmcheg').value)||0;
+  var km=Math.max(kc-ks,0), val=km*KM_RATE;
+  $('d_valorCalc').textContent=money(val)+' ('+km+' km)';
+  return val;
+}
+$('d_kmsaida').addEventListener('input',recalcDesloc);
+$('d_kmcheg').addEventListener('input',recalcDesloc);
+
 function addExpense(){
-  var val=parseFloat(($('valIn').value||'').replace(',','.'));
   if(!selCat){toast('Escolha uma categoria');return;}
+  if(selCat==='Deslocamento'){ addDeslocamento(); return; }
+  var val=parseFloat(($('valIn').value||'').replace(',','.'));
   if(!(val>0)){toast('Digite um valor válido');return;}
   state.expenses.push({ id:uid(), cat:selCat, desc:($('descIn').value||'').trim(), val:val,
     photo:selPhoto?selPhoto.dataURL:null, pw:selPhoto?selPhoto.w:0, ph:selPhoto?selPhoto.h:0, ts:Date.now() });
@@ -321,8 +360,31 @@ function addExpense(){
   selCat=null; selPhoto=null;
   var all=document.querySelectorAll('#cats button');for(var j=0;j<all.length;j++)all[j].classList.remove('sel');
   $('descIn').value=''; $('valIn').value=''; renderPhotobox();
+  updateCatFieldsVisibility();
   renderQuickList();
   toast('Despesa adicionada ✓');
+}
+
+function addDeslocamento(){
+  var destino=($('d_destino').value||'').trim();
+  var data=$('d_data').value;
+  var ks=parseFloat($('d_kmsaida').value), kc=parseFloat($('d_kmcheg').value);
+  if(!(ks>=0)||!(kc>=0)){toast('Informe o KM saída e o KM chegada');return;}
+  if(kc<ks){toast('KM chegada deve ser maior ou igual ao KM saída');return;}
+  if(!data){toast('Informe a data da viagem');return;}
+  var km=kc-ks, val=km*KM_RATE;
+  state.expenses.push({ id:uid(), cat:'Deslocamento',
+    desc:destino?('Viagem para '+destino):'Deslocamento',
+    destino:destino, dataViagem:data, kmSaida:ks, kmCheg:kc, kmRate:KM_RATE, val:val,
+    photo:selPhoto?selPhoto.dataURL:null, pw:selPhoto?selPhoto.w:0, ph:selPhoto?selPhoto.h:0, ts:Date.now() });
+  save();
+  selPhoto=null; renderPhotobox();
+  $('d_destino').value='';
+  $('d_kmsaida').value=kc; // próxima viagem geralmente parte de onde a anterior chegou
+  $('d_kmcheg').value='';
+  recalcDesloc();
+  renderQuickList();
+  toast('Deslocamento adicionado ✓');
 }
 
 function subtotais(){var s={};CATS.forEach(function(c){s[c]=0;});
@@ -331,8 +393,12 @@ function totalGeral(){return state.expenses.reduce(function(a,e){return a+e.val;
 
 function itemHTML(e){
   var thumb=e.photo?'<img class="thumb" src="'+e.photo+'">':'<div class="thumb none">🧾</div>';
+  var small=CATICON[e.cat]+' '+e.cat;
+  if(e.cat==='Deslocamento' && e.kmSaida!=null){
+    small+=' · '+(fmtDate(e.dataViagem)||'')+' · KM '+e.kmSaida+'→'+e.kmCheg+' ('+(e.kmCheg-e.kmSaida)+'km × R$ 1,40)';
+  }
   return '<div class="item">'+thumb
-    +'<div class="desc"><b>'+(e.desc||e.cat)+'</b><small>'+CATICON[e.cat]+' '+e.cat+'</small></div>'
+    +'<div class="desc"><b>'+(e.desc||e.cat)+'</b><small>'+small+'</small></div>'
     +'<div class="val">'+money(e.val)+'</div>'
     +'<button class="del" onclick="delExpense(\''+e.id+'\')">🗑️</button></div>';
 }
@@ -369,6 +435,59 @@ function renderTotais(){
   h+='<div class="tot"><span>Total de dias</span><b>'+(dias||'—')+'</b></div>';
   h+='<div class="tot"><span>Média diária</span><b>'+money(media)+'</b></div>';
   $('totais').innerHTML=h;
+}
+
+function gerarResumoTexto(){
+  var h=state.header, sub=subtotais(), tot=totalGeral();
+  var adto=parseFloat((h.f_adto||'').toString().replace(',','.'))||0;
+  var dias=daysBetween(), media=dias>0?tot/dias:0;
+  var receber=Math.max(tot-adto,0), devolver=adto>tot?adto-tot:0;
+  var L=[];
+  L.push('RESUMO DE REEMBOLSO'+(h.f_mes?(' — '+h.f_mes):''));
+  if(h.f_func) L.push('Funcionário: '+h.f_func);
+  if(h.f_obj) L.push('Objetivo: '+h.f_obj);
+  L.push('');
+  CATS.forEach(function(c){
+    var items=state.expenses.filter(function(e){return e.cat===c;});
+    if(!items.length) return;
+    L.push(CATICON[c]+' '+c+' — '+money(sub[c]));
+    items.forEach(function(e){
+      if(c==='Deslocamento' && e.kmSaida!=null){
+        var km=Math.max((e.kmCheg-e.kmSaida),0);
+        L.push('  • '+(fmtDate(e.dataViagem)||'—')+' | '+(e.destino?('Viagem para '+e.destino):'Deslocamento')
+          +' | KM '+e.kmSaida+' → '+e.kmCheg+' ('+km+' km × R$ 1,40) | '+money(e.val));
+      }else{
+        L.push('  • '+(e.desc||c)+' — '+money(e.val));
+      }
+    });
+    L.push('');
+  });
+  L.push('TOTAL GERAL: '+money(tot));
+  if(adto>0){
+    L.push('Adiantamento recebido: '+money(adto));
+    L.push(receber>0?('A receber: '+money(receber)):('A devolver: '+money(devolver)));
+  }
+  if(dias>0){ L.push('Total de dias: '+dias); L.push('Média diária: '+money(media)); }
+  return L.join('\n');
+}
+function renderResumoEmail(){
+  var el=$('resumoEmail'); if(!el) return;
+  el.value=state.expenses.length?gerarResumoTexto():'Nenhuma despesa lançada ainda.';
+}
+function copiarResumo(){
+  var el=$('resumoEmail');
+  el.removeAttribute('readonly'); el.focus(); el.select();
+  var done=false;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(el.value).then(function(){toast('Resumo copiado ✓');}).catch(function(){
+      try{document.execCommand('copy');toast('Resumo copiado ✓');}catch(e){toast('Não foi possível copiar');}
+    });
+    done=true;
+  }
+  if(!done){
+    try{document.execCommand('copy');toast('Resumo copiado ✓');}catch(e){toast('Não foi possível copiar');}
+  }
+  el.setAttribute('readonly','readonly');
 }
 
 var HFIELDS=['f_mes','f_func','f_obj','f_dsaida','f_hsaida','f_dcheg','f_hcheg',
@@ -422,7 +541,13 @@ function gerarPDF(){
   var col=(PW-2*M-6)/2, leftX=M, rightX=M+col+6;
   function quadrant(cat,startY,x){
     var items=state.expenses.filter(function(e){return e.cat===cat;});
-    var body=items.map(function(e,i){return [pad2(i+1), e.desc||'-', br(e.val)];});
+    var body=items.map(function(e,i){
+      var label=e.desc||'-';
+      if(cat==='Deslocamento' && e.kmSaida!=null){
+        label+=' ('+(fmtDate(e.dataViagem)||'')+' · KM '+e.kmSaida+'→'+e.kmCheg+' · '+(e.kmCheg-e.kmSaida)+'km)';
+      }
+      return [pad2(i+1), label, br(e.val)];
+    });
     if(!body.length) body=[['01','','0,00']];
     body.push([{content:'SUB-TOTAL',colSpan:2,styles:{fillColor:GREY,fontStyle:'bold'}},
                {content:br(sub[cat]),styles:{fillColor:GREY,fontStyle:'bold',halign:'right'}}]);
